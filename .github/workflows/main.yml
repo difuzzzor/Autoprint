@@ -1,0 +1,55 @@
+name: Build with Self-Signed Certificate
+
+on: [workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        pip install pyinstaller pywin32 PySide6 psutil PyMuPDF
+        
+    - name: Build EXE
+      run: pyinstaller --onedir --clean --name=AutoPrintTool auto_print_final.py
+    
+    - name: Create self-signed certificate
+      run: |
+        # Создаем самоподписанный сертификат
+        $cert = New-SelfSignedCertificate `
+          -Type CodeSigning `
+          -Subject "CN=AutoPrint" `
+          -CertStoreLocation Cert:\CurrentUser\My `
+          -HashAlgorithm SHA256
+        
+        # Экспортируем сертификат
+        Export-Certificate -Cert $cert -FilePath "certificate.cer"
+        
+        echo "Certificate created with thumbprint: $($cert.Thumbprint)"
+    
+    - name: Sign EXE with certificate
+      run: |
+        $exePath = "dist\AutoPrintTool\AutoPrintTool.exe"
+        
+        # Подписываем EXE
+        Set-AuthenticodeSignature `
+          -FilePath $exePath `
+          -Certificate (Get-ChildItem -Path Cert:\CurrentUser\My | Where-Object {$_.Subject -match "CN=AutoPrint"}) `
+          -HashAlgorithm SHA256
+        
+        echo "EXE signed successfully"
+        
+        # Проверяем подпись
+        Get-AuthenticodeSignature -FilePath $exePath | Format-List
+    
+    - uses: actions/upload-artifact@v4
+      with:
+        name: Signed-AutoPrint
+        path: |
+          dist/AutoPrintTool/
+          certificate.cer
