@@ -696,38 +696,41 @@ class AutoPrintTool(QMainWindow):
             temp_dir = tempfile.gettempdir()
             js_file = os.path.join(temp_dir, f"adobe_print_{int(time.time())}.js")
             
+            # Исправленная строка: используем raw string для пути
+            escaped_path = file_path.replace('\\', '\\\\')
+            
             # JavaScript для Adobe Reader
             js_content = f"""
-            // JavaScript для Adobe Reader
-            // Печатает указанное количество копий
+            // JavaScript für Adobe Reader
+            // Druckt angegebene Anzahl Kopien
             
             try {{
-                // Открываем PDF
-                var doc = app.openDoc("{file_path.replace('\\', '\\\\')}");
+                // PDF öffnen
+                var doc = app.openDoc("{escaped_path}");
                 
                 if (doc != null) {{
-                    // Настраиваем параметры печати
+                    // Druckparameter einstellen
                     var pp = doc.getPrintParams();
                     
-                    // Принтер
+                    // Drucker
                     pp.interactive = pp.constants.interactionLevel.silent;
                     pp.printerName = "{printer_name}";
                     
-                    // Количество копий
+                    // Anzahl Kopien
                     pp.numCopies = {copies};
                     
-                    // Используем настройки принтера по умолчанию
+                    // Standard Druckereinstellungen verwenden
                     pp.useDeviceFonts = true;
                     pp.shrinkToFit = false;
                     
-                    // Печатаем
+                    // Drucken
                     doc.print(pp);
                     
-                    // Закрываем документ
+                    // Dokument schließen
                     doc.closeDoc();
                 }}
                 
-                // Выходим из Adobe Reader
+                // Adobe Reader beenden
                 app.execMenuItem("Quit");
                 
             }} catch(e) {{
@@ -738,12 +741,12 @@ class AutoPrintTool(QMainWindow):
             with open(js_file, 'w', encoding='utf-8') as f:
                 f.write(js_content)
             
-            # 3. Запускаем Adobe Reader с JavaScript
+            # 3. Запускаем Adobe Reader mit JavaScript
             cmd = f'"{adobe_path}" "{file_path}" /s /h /t "{js_file}"'
             
             print(f"Adobe Befehl: {cmd}")
             
-            # Запускаем процесс
+            # Prozess starten
             startupinfo = subprocess.STARTUPINFO()
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
             startupinfo.wShowWindow = subprocess.SW_HIDE
@@ -757,25 +760,25 @@ class AutoPrintTool(QMainWindow):
                 creationflags=subprocess.CREATE_NO_WINDOW
             )
             
-            # 4. Ждем выполнения
-            timeout = 10 + min(copies * 2, 120)  # Максимум 130 секунд
+            # 4. Warten auf Beendigung
+            timeout = 10 + min(copies * 2, 120)  # Maximal 130 Sekunden
             start_time = time.time()
             
             while time.time() - start_time < timeout:
                 if process.poll() is not None:
                     break
                 
-                # Обновляем статус
+                # Status aktualisieren
                 elapsed = int(time.time() - start_time)
                 progress = min(100, int((elapsed / timeout) * 100))
                 self.status_signal.emit(f"🔄 Adobe verarbeitet... {progress}%")
                 time.sleep(1)
             
-            # 5. Принудительно закрываем Adobe если еще работает
+            # 5. Adobe erzwingen falls noch läuft
             time.sleep(2)
             self.force_kill_adobe()
             
-            # 6. Удаляем временный файл
+            # 6. Temporäre Datei löschen
             try:
                 os.remove(js_file)
             except:
@@ -785,7 +788,7 @@ class AutoPrintTool(QMainWindow):
             
         except Exception as e:
             print(f"Adobe Druckfehler: {e}")
-            # Все равно закрываем Adobe
+            # Trotzdem Adobe schließen
             self.force_kill_adobe()
             return False
     
